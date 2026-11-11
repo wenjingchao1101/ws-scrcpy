@@ -28,6 +28,12 @@ export class FeaturedInteractionHandler extends InteractionHandler {
     private readonly storedFromMouseEvent = new Map<number, TouchControlMessage>();
     private readonly storedFromTouchEvent = new Map<number, TouchControlMessage>();
     private lastScrollEvent?: { time: number; hScroll: number; vScroll: number };
+    private keyboardCapture = false;
+
+    public setKeyboardCapture(enabled: boolean): void {
+        this.keyboardCapture = enabled;
+        this.clearCanvas();
+    }
 
     constructor(player: BasePlayer, public readonly listener: InteractionHandlerListener) {
         super(player, FeaturedInteractionHandler.touchEventsNames, FeaturedInteractionHandler.keyEventsNames);
@@ -70,7 +76,19 @@ export class FeaturedInteractionHandler extends InteractionHandler {
                 messages = this.buildScrollEvent(event, screenInfo);
             } else {
                 storage = this.storedFromMouseEvent;
-                messages = this.buildTouchEvent(event, screenInfo, storage);
+                const touchEvent = this.keyboardCapture
+                    ? {
+                          type: event.type,
+                          target: event.target,
+                          button: event.button,
+                          buttons: event.buttons,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                          ctrlKey: false,
+                          shiftKey: event.shiftKey,
+                      }
+                    : event;
+                messages = this.buildTouchEvent(touchEvent, screenInfo, storage);
             }
             if (this.over) {
                 this.lastPosition = event;
@@ -96,7 +114,7 @@ export class FeaturedInteractionHandler extends InteractionHandler {
     }
 
     protected onKey(event: KeyboardEvent): void {
-        if (!this.lastPosition) {
+        if (this.keyboardCapture || !this.lastPosition) {
             return;
         }
         const screenInfo = this.player.getScreenInfo();

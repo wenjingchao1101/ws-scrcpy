@@ -17,6 +17,24 @@
     text-shadow: var(--text-shadow-color) 0 0 .357rem;
 }
 
+.more-box-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.more-box-header > p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.more-box-header > button {
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: .35rem .6rem;
+}
+
 .spoiler > input ~ .box {
     display: none;
 }

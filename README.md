@@ -39,6 +39,8 @@ npm install
 npm start
 ```
 
+Default web, API and WebSocket endpoint: http://127.0.0.1:5101/ . A custom `server.port` overrides this default.
+
 ## Supported features
 
 ### Android
@@ -260,11 +262,14 @@ disconnected.
 
 ## scrcpy websocket fork
 
-Currently, support of WebSocket protocol added to v1.19 of scrcpy
+The bundled Android server is a WebSocket build based on scrcpy 3.3.4. It is
+locally versioned as `3.3.4-ws8.2` after the Android 16 clipboard compatibility
+patch, and the browser control messages use the matching 3.3.4 protocol. The
+official scrcpy 5.x server does not provide this WebSocket mode.
 * [Prebuilt package](/vendor/Genymobile/scrcpy/scrcpy-server.jar)
-* [Source code][fork]
+* [WebSocket fork source][fork]
 
-[fork]: https://github.com/NetrisTV/scrcpy/tree/feature/websocket-v1.19.x
+[fork]: https://github.com/Mel0nFish/ws-scrcpy-enhanced
 
 [scrcpy]: https://github.com/Genymobile/scrcpy
 [xevokk/h264-converter]: https://github.com/xevokk/h264-converter

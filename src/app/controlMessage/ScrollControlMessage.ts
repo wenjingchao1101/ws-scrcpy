@@ -5,12 +5,13 @@ export interface ScrollControlMessageInterface extends ControlMessageInterface {
     position: PositionInterface;
     hScroll: number;
     vScroll: number;
+    buttons: number;
 }
 
 export class ScrollControlMessage extends ControlMessage {
     public static PAYLOAD_LENGTH = 20;
 
-    constructor(readonly position: Position, readonly hScroll: number, readonly vScroll: number) {
+    constructor(readonly position: Position, readonly hScroll: number, readonly vScroll: number, readonly buttons = 0) {
         super(ControlMessage.TYPE_SCROLL);
     }
 
@@ -25,8 +26,14 @@ export class ScrollControlMessage extends ControlMessage {
         offset = buffer.writeUInt32BE(this.position.point.y, offset);
         offset = buffer.writeUInt16BE(this.position.screenSize.width, offset);
         offset = buffer.writeUInt16BE(this.position.screenSize.height, offset);
-        offset = buffer.writeInt32BE(this.hScroll, offset);
-        buffer.writeInt32BE(this.vScroll, offset);
+        // scrcpy encodes scroll deltas as signed 16-bit fixed-point values in [-16, 16].
+        const encodeScroll = (value: number): number => {
+            const normalized = Math.max(-1, Math.min(1, value / 16));
+            return Math.round(normalized * 0x7fff);
+        };
+        offset = buffer.writeInt16BE(encodeScroll(this.hScroll), offset);
+        offset = buffer.writeInt16BE(encodeScroll(this.vScroll), offset);
+        buffer.writeInt32BE(this.buttons, offset);
         return buffer;
     }
 
@@ -40,6 +47,7 @@ export class ScrollControlMessage extends ControlMessage {
             position: this.position.toJSON(),
             hScroll: this.hScroll,
             vScroll: this.vScroll,
+            buttons: this.buttons,
         };
     }
 }

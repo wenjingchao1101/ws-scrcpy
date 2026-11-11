@@ -49,8 +49,12 @@ export class CommandControlMessage extends ControlMessage {
         const textBytes: Uint8Array | null = text ? Util.stringToUtf8ByteArray(text) : null;
         const textLength = textBytes ? textBytes.length : 0;
         let offset = 0;
-        const buffer = Buffer.alloc(1 + 1 + 4 + textLength);
+        // scrcpy 3.3+ expects: type, sequence (long), paste flag, UTF-8 length, text.
+        const buffer = Buffer.alloc(1 + 8 + 1 + 4 + textLength);
         offset = buffer.writeInt8(event.type, offset);
+        // SEQUENCE_INVALID (0) keeps the server-side clipboard sequence semantics.
+        offset = buffer.writeInt32BE(0, offset);
+        offset = buffer.writeInt32BE(0, offset);
         offset = buffer.writeInt8(paste ? 1 : 0, offset);
         offset = buffer.writeInt32BE(textLength, offset);
         if (textBytes) {
@@ -208,8 +212,13 @@ export class CommandControlMessage extends ControlMessage {
      */
     public toBuffer(): Buffer {
         if (!this.buffer) {
-            const buffer = Buffer.alloc(CommandControlMessage.PAYLOAD_LENGTH + 1);
+            // GET_CLIPBOARD gained a copy-key byte in scrcpy 3.3.
+            const payloadLength = this.type === ControlMessage.TYPE_GET_CLIPBOARD ? 1 : 0;
+            const buffer = Buffer.alloc(CommandControlMessage.PAYLOAD_LENGTH + 1 + payloadLength);
             buffer.writeUInt8(this.type, 0);
+            if (this.type === ControlMessage.TYPE_GET_CLIPBOARD) {
+                buffer.writeUInt8(0, 1);
+            }
             this.buffer = buffer;
         }
         return this.buffer;

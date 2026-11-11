@@ -160,6 +160,48 @@ body.stream {
     opacity: 1;
 }
 
+.android-device-view {
+    position: relative;
+    flex-direction: column-reverse;
+    --android-toolbar-height: 3.715rem;
+}
+
+.android-device-view > .video {
+    flex: 1 1 0;
+    height: auto;
+}
+
+.android-device-view > .control-buttons-list {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: var(--android-toolbar-height);
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.android-device-view > .control-buttons-list > * {
+    flex-shrink: 0;
+}
+
+.android-device-view > .control-buttons-list > :first-child,
+.android-device-view > .control-buttons-list > input:first-child + label {
+    margin-left: auto;
+}
+
+.android-device-view > .control-buttons-list > :last-child {
+    margin-right: auto;
+}
+
+.android-device-view > .more-box {
+    right: 0;
+    bottom: var(--android-toolbar-height);
+    box-sizing: border-box;
+    max-width: 100%;
+    max-height: calc(100% - var(--android-toolbar-height));
+    overflow: auto;
+}
+
 .control-wrapper > input[type=checkbox] {
     display: none;
 }

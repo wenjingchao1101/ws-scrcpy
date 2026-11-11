@@ -7,6 +7,7 @@ import Size from '../../Size';
 import DeviceMessage from '../DeviceMessage';
 import VideoSettings from '../../VideoSettings';
 import { StreamClientScrcpy } from '../client/StreamClientScrcpy';
+import { CopyState } from '../RemoteClipboardCopy';
 
 const TAG = '[GoogMoreBox]';
 
@@ -15,6 +16,9 @@ export class GoogMoreBox {
     private onStop?: () => void;
     private readonly holder: HTMLElement;
     private readonly input: HTMLTextAreaElement;
+    private readonly clipboardStatus: HTMLParagraphElement;
+    private readonly copyButton: HTMLButtonElement;
+    private clipboardPanelDismissed = false;
     private readonly bitrateInput?: HTMLInputElement;
     private readonly maxFpsInput?: HTMLInputElement;
     private readonly iFrameIntervalInput?: HTMLInputElement;
@@ -31,13 +35,58 @@ export class GoogMoreBox {
         const nameBox = document.createElement('p');
         nameBox.innerText = `${udid} (${playerName})`;
         nameBox.className = 'text-with-shadow';
-        moreBox.appendChild(nameBox);
+        const header = document.createElement('div');
+        header.className = 'more-box-header';
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.textContent = '关闭 ×';
+        closeButton.setAttribute('aria-label', '关闭更多面板');
+        closeButton.onclick = () => {
+            this.clipboardPanelDismissed = true;
+            moreBox.style.display = 'none';
+            const toggle = moreBox.parentElement?.querySelector<HTMLInputElement>('input[id^="show_more_"]');
+            if (toggle) {
+                toggle.checked = false;
+            }
+            closeButton.blur();
+        };
+        header.appendChild(nameBox);
+        header.appendChild(closeButton);
+        moreBox.appendChild(header);
         const input = (this.input = document.createElement('textarea'));
         input.classList.add('text-area');
         const sendButton = document.createElement('button');
         sendButton.innerText = 'Send as keys';
 
         const inputWrapper = GoogMoreBox.wrap('p', [input, sendButton], moreBox);
+        const copyButton = (this.copyButton = document.createElement('button'));
+        copyButton.textContent = '复制到电脑';
+        copyButton.disabled = true;
+        inputWrapper.appendChild(copyButton);
+        this.clipboardStatus = document.createElement('p');
+        this.clipboardStatus.setAttribute('role', 'status');
+        moreBox.appendChild(this.clipboardStatus);
+        copyButton.onclick = () => {
+            // A real user click also supports browsers requiring fresh user activation.
+            input.focus();
+            input.select();
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch {
+                // Keep the visible text selected for native Ctrl+C if legacy copying is blocked.
+            }
+            if (copied) {
+                this.showClipboardStatus('copied');
+            } else if (navigator.clipboard?.writeText) {
+                void navigator.clipboard.writeText(input.value).then(
+                    () => this.showClipboardStatus('copied'),
+                    () => this.showClipboardStatus('blocked'),
+                );
+            } else {
+                this.showClipboardStatus('blocked');
+            }
+        };
         sendButton.onclick = () => {
             if (input.value) {
                 client.sendMessage(new TextControlMessage(input.value));
@@ -286,8 +335,31 @@ export class GoogMoreBox {
             return;
         }
         this.input.value = ev.getText();
-        this.input.select();
-        document.execCommand('copy');
+        this.copyButton.disabled = false;
+    }
+
+    public showClipboardStatus(state: CopyState): void {
+        if (state === 'waiting') {
+            this.copyButton.disabled = true;
+            this.clipboardPanelDismissed = false;
+        }
+        const messages: Record<CopyState, string> = {
+            waiting: '正在读取手机剪贴板，请先在手机中选中文字。',
+            copied: '手机剪贴板已写入电脑，可以切换到电脑输入框粘贴。',
+            blocked: '已收到手机文本，但浏览器未允许自动复制。请点击“复制到电脑”，或选中上方文本按 Ctrl+C。',
+            timeout: '未收到手机剪贴板。请确认手机已复制文字、设备服务已更新，并检查服务端日志。',
+        };
+        this.clipboardStatus.textContent = messages[state];
+        // Late clipboard replies must not reopen a panel the user just closed.
+        if (this.clipboardPanelDismissed) {
+            return;
+        }
+        // Make failures actionable instead of silently dropping a clipboard update.
+        this.holder.style.display = 'block';
+        const toggle = this.holder.parentElement?.querySelector<HTMLInputElement>('input[id^="show_more_"]');
+        if (toggle) {
+            toggle.checked = true;
+        }
     }
 
     private static wrap(

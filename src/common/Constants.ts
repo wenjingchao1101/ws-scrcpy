@@ -1,6 +1,6 @@
 export const SERVER_PACKAGE = 'com.genymobile.scrcpy.Server';
 export const SERVER_PORT = 8886;
-export const SERVER_VERSION = '1.19-ws8';
+export const SERVER_VERSION = '3.3.4-ws8.2';
 
 export const SERVER_TYPE = 'web';
 

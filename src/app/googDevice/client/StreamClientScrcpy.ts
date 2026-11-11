@@ -12,6 +12,8 @@ import FilePushHandler from '../filePush/FilePushHandler';
 import DragAndPushLogger from '../DragAndPushLogger';
 import { KeyEventListener, KeyInputHandler } from '../KeyInputHandler';
 import { KeyCodeControlMessage } from '../../controlMessage/KeyCodeControlMessage';
+import KeyEvent from '../android/KeyEvent';
+import { RemoteClipboardCopy, CopyState } from '../RemoteClipboardCopy';
 import { BasePlayer, PlayerClass } from '../../player/BasePlayer';
 import GoogDeviceDescriptor from '../../../types/GoogDeviceDescriptor';
 import { ConfigureScrcpy } from './ConfigureScrcpy';
@@ -49,6 +51,16 @@ export class StreamClientScrcpy
     private static players: Map<string, PlayerClass> = new Map<string, PlayerClass>();
 
     private controlButtons?: HTMLElement;
+    private readonly clipboardCopy = new RemoteClipboardCopy(
+        () => this.sendMessage(new CommandControlMessage(ControlMessage.TYPE_GET_CLIPBOARD)),
+        (text) => {
+            if (!navigator.clipboard?.writeText) {
+                return Promise.reject(new Error('Clipboard API unavailable'));
+            }
+            return navigator.clipboard.writeText(text);
+        },
+        (state: CopyState) => this.moreBox?.showClipboardStatus(state),
+    );
     private deviceName = '';
     private clientId = -1;
     private clientsCount = -1;
@@ -170,6 +182,9 @@ export class StreamClientScrcpy
     }
 
     public OnDeviceMessage = (message: DeviceMessage): void => {
+        if (message.type === DeviceMessage.TYPE_CLIPBOARD) {
+            this.clipboardCopy.receive(message.getText());
+        }
         if (this.moreBox) {
             this.moreBox.OnDeviceMessage(message);
         }
@@ -257,6 +272,8 @@ export class StreamClientScrcpy
     };
 
     public onDisconnected = (): void => {
+        this.setHandleKeyboardEvents(false);
+        this.clipboardCopy.stop();
         this.streamReceiver.off('deviceMessage', this.OnDeviceMessage);
         this.streamReceiver.off('video', this.onVideo);
         this.streamReceiver.off('clientsStats', this.onClientsStats);
@@ -305,7 +322,7 @@ export class StreamClientScrcpy
         }
 
         const deviceView = document.createElement('div');
-        deviceView.className = 'device-view';
+        deviceView.className = 'device-view android-device-view';
         const stop = (ev?: string | Event) => {
             if (ev && ev instanceof Event && ev.type === 'error') {
                 console.error(TAG, ev);
@@ -404,6 +421,7 @@ export class StreamClientScrcpy
     }
 
     public setHandleKeyboardEvents(enabled: boolean): void {
+        this.touchHandler?.setKeyboardCapture(enabled);
         if (enabled) {
             KeyInputHandler.addEventListener(this);
         } else {
@@ -414,6 +432,17 @@ export class StreamClientScrcpy
     public onKeyEvent(event: KeyCodeControlMessage): void {
         this.sendMessage(event);
     }
+
+    public onCopyShortcut = (): void => {
+        this.clipboardCopy.start();
+        // Apps commonly implement Ctrl+C but may ignore the dedicated KEYCODE_COPY.
+        this.sendMessage(new KeyCodeControlMessage(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_C, 0, KeyEvent.META_CTRL_ON));
+        this.sendMessage(new KeyCodeControlMessage(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_C, 0, KeyEvent.META_CTRL_ON));
+    };
+
+    public onPaste = (text: string): void => {
+        this.sendMessage(CommandControlMessage.createSetClipboardCommand(text, true));
+    };
 
     public sendNewVideoSetting(videoSettings: VideoSettings): void {
         this.requestedVideoSettings = videoSettings;
@@ -433,8 +462,8 @@ export class StreamClientScrcpy
             return;
         }
         const body = document.body;
-        const width = (body.clientWidth - this.controlButtons.clientWidth) & ~15;
-        const height = body.clientHeight & ~15;
+        const width = body.clientWidth & ~15;
+        const height = Math.max(16, body.clientHeight - this.controlButtons.clientHeight) & ~15;
         return new Size(width, height);
     }
 

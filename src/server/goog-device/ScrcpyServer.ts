@@ -71,7 +71,7 @@ export class ScrcpyServer {
         }
         const serverPid: number[] = [];
         const promises = list.map((pid) => {
-            return device.runShellCommandAdbKit(`cat /proc/${pid}/cmdline`).then((output) => {
+            return device.runShellCommandAdbKit(`cat /proc/${pid}/cmdline`).then(async (output) => {
                 const args = output.split('\0');
                 if (!args.length || args[0] !== SERVER_PROCESS_NAME) {
                     return;
@@ -97,7 +97,7 @@ export class ScrcpyServer {
                                 `Found old server version running (PID: ${pid}, Version: ${versionString})`,
                             );
                             console.log(device.TAG, 'Perform kill now');
-                            device.killProcess(pid);
+                            await device.killProcess(pid);
                         }
                     }
                 }
